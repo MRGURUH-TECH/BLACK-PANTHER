@@ -5,9 +5,8 @@ const path = require('path');
 
 const REPO_URL = 'https://github.com/koyoteh/MAIN-PANTHER-REPO/archive/refs/heads/main.zip';
 const TEMP_ZIP = 'panther-core.zip';
-const EXTRACT_DIR = 'MAIN-PANTHER-REPO-main';
 
-console.log('🐾 BLACK PANTHER MD - Downloading core files...');
+console.log('🐾 BLACK PANTHER MD - Downloader');
 
 async function downloadFile(url, dest) {
     const response = await axios({
@@ -26,40 +25,68 @@ async function downloadFile(url, dest) {
     });
 }
 
+function findIndexJs(dir) {
+    const items = fs.readdirSync(dir);
+    
+    for (const item of items) {
+        const fullPath = path.join(dir, item);
+        const stat = fs.statSync(fullPath);
+        
+        if (stat.isFile() && (item === 'index.js' || item === 'main.js')) {
+            return fullPath;
+        } else if (stat.isDirectory()) {
+            const found = findIndexJs(fullPath);
+            if (found) return found;
+        }
+    }
+    return null;
+}
+
 async function main() {
     try {
         console.log('📥 Downloading from GitHub...');
         await downloadFile(REPO_URL, TEMP_ZIP);
         
-        console.log('📦 Extracting files...');
-        
-        // Extract zip
+        console.log('📦 Extracting...');
         await new Promise((resolve, reject) => {
-            exec(`unzip -o ${TEMP_ZIP}`, (err, stdout, stderr) => {
+            exec(`unzip -o ${TEMP_ZIP}`, (err) => {
                 if (err) reject(err);
                 else resolve();
             });
         });
         
-        // Move files from subfolder to current directory
-        if (fs.existsSync(EXTRACT_DIR)) {
-            const files = fs.readdirSync(EXTRACT_DIR);
-            for (const file of files) {
-                const source = path.join(EXTRACT_DIR, file);
-                const dest = path.join('.', file);
-                if (fs.existsSync(dest)) {
-                    fs.rmSync(dest, { recursive: true, force: true });
-                }
-                fs.renameSync(source, dest);
-            }
-            fs.rmdirSync(EXTRACT_DIR);
+        // Find extracted directory
+        const extractedDir = fs.readdirSync('.').find(d => d.startsWith('MAIN-PANTHER-REPO-main'));
+        
+        if (!extractedDir) {
+            throw new Error('Could not find extracted directory');
         }
         
-        // Clean up
+        console.log(`📁 Moving files from ${extractedDir}...`);
+        
+        // Move everything up
+        const files = fs.readdirSync(extractedDir);
+        for (const file of files) {
+            const source = path.join(extractedDir, file);
+            const dest = path.join('.', file);
+            
+            if (fs.existsSync(dest)) {
+                fs.rmSync(dest, { recursive: true, force: true });
+            }
+            fs.renameSync(source, dest);
+        }
+        fs.rmdirSync(extractedDir);
         fs.unlinkSync(TEMP_ZIP);
         
-        console.log('✅ BLACK PANTHER MD is ready! Starting bot...');
-        require('./index.js');
+        // Find and run index.js
+        const indexFile = findIndexJs('.');
+        if (indexFile) {
+            console.log(`✅ Found bot entry: ${indexFile}`);
+            require(path.resolve(indexFile));
+        } else {
+            console.error('❌ Could not find index.js or main.js');
+            console.log('Available files:', fs.readdirSync('.'));
+        }
         
     } catch (err) {
         console.error('Error:', err.message);
