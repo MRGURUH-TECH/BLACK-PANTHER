@@ -16,8 +16,10 @@ async function downloadFile(url, dest) {
         responseType: 'stream',
         maxRedirects: 5
     });
+    
     const writer = fs.createWriteStream(dest);
     response.data.pipe(writer);
+    
     return new Promise((resolve, reject) => {
         writer.on('finish', resolve);
         writer.on('error', reject);
@@ -27,8 +29,12 @@ async function downloadFile(url, dest) {
 async function runCommand(command) {
     return new Promise((resolve, reject) => {
         exec(command, { maxBuffer: 1024 * 1024 * 10 }, (err, stdout, stderr) => {
-            if (err) reject(err);
-            else resolve();
+            if (err) {
+                reject(err);
+            } else {
+                if (stdout) console.log(stdout);
+                resolve();
+            }
         });
     });
 }
@@ -42,7 +48,7 @@ async function main() {
         await runCommand(`unzip -o ${TEMP_ZIP}`);
         
         if (!fs.existsSync(EXTRACT_DIR)) {
-            throw new Error('Extract directory not found');
+            throw new Error(`Could not find ${EXTRACT_DIR} directory`);
         }
         
         console.log('📁 Moving files...');
@@ -55,14 +61,15 @@ async function main() {
             }
             fs.renameSync(source, dest);
         }
+        
         fs.rmdirSync(EXTRACT_DIR);
         fs.unlinkSync(TEMP_ZIP);
         
-        console.log('📦 Installing dependencies...');
-        await runCommand('npm install');
-        
-        console.log('🔧 Ensuring debug module is installed...');
+        console.log('📦 Installing debug module...');
         await runCommand('npm install debug@4.3.4 --save');
+        
+        console.log('📦 Installing all dependencies...');
+        await runCommand('npm install');
         
         console.log('✅ Ready! Starting BLACK PANTHER MD...');
         require('./index.js');
