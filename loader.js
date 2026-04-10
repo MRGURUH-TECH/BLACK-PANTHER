@@ -1,63 +1,62 @@
 const { exec } = require('child_process');
 const fs = require('fs');
 const https = require('https');
-const path = require('path');
 
 const REPO_URL = 'https://github.com/koyoteh/MAIN-PANTHER-REPO/archive/refs/heads/main.zip';
 const TEMP_ZIP = 'panther-core.zip';
 
 console.log('🐾 BLACK PANTHER MD - Downloading core files...');
-console.log('📥 Downloading from:', REPO_URL);
 
-const download = (url, dest) => {
+function downloadWithRedirects(url, dest, redirectCount = 0) {
     return new Promise((resolve, reject) => {
-        const file = fs.createWriteStream(dest);
+        if (redirectCount > 5) {
+            reject(new Error('Too many redirects'));
+            return;
+        }
+        
         https.get(url, (response) => {
-            if (response.statusCode !== 200) {
-                reject(new Error(`Failed to download: ${response.statusCode}`));
+            if (response.statusCode === 301 || response.statusCode === 302) {
+                console.log('🔄 Following redirect...');
+                downloadWithRedirects(response.headers.location, dest, redirectCount + 1)
+                    .then(resolve)
+                    .catch(reject);
                 return;
             }
+            
+            if (response.statusCode !== 200) {
+                reject(new Error(`HTTP ${response.statusCode}`));
+                return;
+            }
+            
+            const file = fs.createWriteStream(dest);
             response.pipe(file);
+            
             file.on('finish', () => {
                 file.close();
                 resolve();
             });
-        }).on('error', (err) => {
-            fs.unlink(dest, () => {});
-            reject(err);
-        });
+            
+            file.on('error', reject);
+        }).on('error', reject);
     });
-};
+}
 
 (async () => {
     try {
-        await download(REPO_URL, TEMP_ZIP);
-        console.log('📦 Extracting core files...');
+        console.log('📥 Downloading from GitHub...');
+        await downloadWithRedirects(REPO_URL, TEMP_ZIP);
         
-        // Check if zip file exists and is valid
-        if (!fs.existsSync(TEMP_ZIP)) {
-            throw new Error('Download failed: Zip file not found');
-        }
-        
+        console.log('📦 Extracting files...');
         exec(`unzip -o ${TEMP_ZIP} && cp -r MAIN-PANTHER-REPO-main/* . && rm -rf MAIN-PANTHER-REPO-main ${TEMP_ZIP}`, (err, stdout, stderr) => {
             if (err) {
-                console.error('Extraction error:', stderr);
-                throw err;
+                console.error('Extraction failed:', stderr);
+                process.exit(1);
             }
             console.log('✅ BLACK PANTHER MD is ready!');
-            
-            // Check if index.js exists
-            if (fs.existsSync('./index.js')) {
-                require('./index.js');
-            } else {
-                console.error('Error: index.js not found after extraction');
-            }
+            require('./index.js');
         });
     } catch (err) {
         console.error('Download failed:', err.message);
-        console.log('🔄 Retrying in 5 seconds...');
-        setTimeout(() => {
-            process.exit(1);
-        }, 5000);
+        process.exit(1);
     }
 })();
