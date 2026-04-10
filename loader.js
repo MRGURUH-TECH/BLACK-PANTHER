@@ -30,7 +30,6 @@ async function runCommand(command) {
     return new Promise((resolve, reject) => {
         exec(command, (err, stdout, stderr) => {
             if (err) {
-                console.error('Command error:', err.message);
                 reject(err);
             } else {
                 if (stdout) console.log(stdout);
@@ -68,8 +67,8 @@ async function main() {
         fs.rmdirSync(EXTRACT_DIR);
         fs.unlinkSync(TEMP_ZIP);
         
-        console.log('📦 Installing dependencies (this may take a few minutes)...');
-        await runCommand('npm install --production');
+        console.log('📦 Installing dependencies...');
+        await runCommand('npm install');
         
         console.log('✅ Dependencies installed!');
         
@@ -78,7 +77,6 @@ async function main() {
             require('./index.js');
         } else {
             console.error('❌ Could not find index.js');
-            console.log('Files in directory:', fs.readdirSync('.'));
             process.exit(1);
         }
         
