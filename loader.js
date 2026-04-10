@@ -5,6 +5,7 @@ const path = require('path');
 
 const REPO_URL = 'https://github.com/koyoteh/MAIN-PANTHER-REPO/archive/refs/heads/main.zip';
 const TEMP_ZIP = 'panther-core.zip';
+const EXTRACT_DIR = 'MAIN-PANTHER-REPO-main';
 
 console.log('🐾 BLACK PANTHER MD - Downloader');
 
@@ -25,23 +26,6 @@ async function downloadFile(url, dest) {
     });
 }
 
-function findIndexJs(dir) {
-    const items = fs.readdirSync(dir);
-    
-    for (const item of items) {
-        const fullPath = path.join(dir, item);
-        const stat = fs.statSync(fullPath);
-        
-        if (stat.isFile() && (item === 'index.js' || item === 'main.js')) {
-            return fullPath;
-        } else if (stat.isDirectory()) {
-            const found = findIndexJs(fullPath);
-            if (found) return found;
-        }
-    }
-    return null;
-}
-
 async function main() {
     try {
         console.log('📥 Downloading from GitHub...');
@@ -55,37 +39,43 @@ async function main() {
             });
         });
         
-        // Find extracted directory
-        const extractedDir = fs.readdirSync('.').find(d => d.startsWith('MAIN-PANTHER-REPO-main'));
-        
-        if (!extractedDir) {
-            throw new Error('Could not find extracted directory');
+        // Check if extraction directory exists
+        if (!fs.existsSync(EXTRACT_DIR)) {
+            throw new Error(`Could not find ${EXTRACT_DIR} directory`);
         }
         
-        console.log(`📁 Moving files from ${extractedDir}...`);
+        console.log(`📁 Moving files from ${EXTRACT_DIR}...`);
         
-        // Move everything up
-        const files = fs.readdirSync(extractedDir);
-        for (const file of files) {
-            const source = path.join(extractedDir, file);
-            const dest = path.join('.', file);
+        // Move all files and folders up
+        const items = fs.readdirSync(EXTRACT_DIR);
+        for (const item of items) {
+            const source = path.join(EXTRACT_DIR, item);
+            const dest = path.join('.', item);
             
             if (fs.existsSync(dest)) {
                 fs.rmSync(dest, { recursive: true, force: true });
             }
             fs.renameSync(source, dest);
         }
-        fs.rmdirSync(extractedDir);
+        
+        // Remove empty directory and zip
+        fs.rmdirSync(EXTRACT_DIR);
         fs.unlinkSync(TEMP_ZIP);
         
-        // Find and run index.js
-        const indexFile = findIndexJs('.');
-        if (indexFile) {
-            console.log(`✅ Found bot entry: ${indexFile}`);
-            require(path.resolve(indexFile));
+        // Look for index.js in the current directory (not system paths)
+        if (fs.existsSync('./index.js')) {
+            console.log('✅ Found bot entry: index.js');
+            require('./index.js');
+        } else if (fs.existsSync('./main.js')) {
+            console.log('✅ Found bot entry: main.js');
+            require('./main.js');
+        } else if (fs.existsSync('./guru/index.js')) {
+            console.log('✅ Found bot entry: guru/index.js');
+            require('./guru/index.js');
         } else {
             console.error('❌ Could not find index.js or main.js');
-            console.log('Available files:', fs.readdirSync('.'));
+            console.log('📂 Files in current directory:', fs.readdirSync('.').filter(f => !f.startsWith('.')));
+            process.exit(1);
         }
         
     } catch (err) {
