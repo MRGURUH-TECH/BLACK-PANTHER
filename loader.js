@@ -71,26 +71,23 @@ async function main() {
         fs.unlinkSync(TEMP_ZIP);
         console.log('✅ Files moved');
         
-        console.log('[4/7] Creating package.json with debug...');
-        // Read existing package.json
-        let pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-        
-        // Ensure debug is in dependencies
-        if (!pkg.dependencies) pkg.dependencies = {};
-        pkg.dependencies.debug = "^4.3.4";
-        
-        // Save updated package.json
-        fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
-        console.log('✅ package.json updated with debug');
-        
-        console.log('[5/7] Installing debug module...');
+        console.log('[4/7] Installing debug first...');
         await runCommand('npm install debug@4.3.4 --save --force');
         console.log('✅ debug installed');
         
-        console.log('[6/7] Installing all dependencies...');
+        console.log('[5/7] Installing remaining dependencies...');
         console.log('⏳ This may take 2-3 minutes...');
         await runCommand('npm install --force');
         console.log('✅ All dependencies installed');
+        
+        console.log('[6/7] Verifying debug module...');
+        try {
+            require.resolve('debug');
+            console.log('✅ debug module verified');
+        } catch (e) {
+            console.log('⚠️ debug not found, installing again...');
+            await runCommand('npm install debug@4.3.4 --save --force');
+        }
         
         console.log('[7/7] Starting bot...');
         console.log('\n════════════════════════════════════════');
