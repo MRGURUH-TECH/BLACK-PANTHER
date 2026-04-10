@@ -59,7 +59,7 @@ async function main() {
             const source = path.join(EXTRACT_DIR, item);
             const dest = path.join('.', item);
             
-            if (fs.existsSync(dest)) {
+            if (fs.existsSync(dest) && item !== 'package.json') {
                 fs.rmSync(dest, { recursive: true, force: true });
             }
             fs.renameSync(source, dest);
@@ -69,8 +69,12 @@ async function main() {
         fs.rmdirSync(EXTRACT_DIR);
         fs.unlinkSync(TEMP_ZIP);
         
+        // Read the bot's package.json to verify dependencies
+        const botPackage = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+        console.log(`📋 Found bot package.json with ${Object.keys(botPackage.dependencies || {}).length} dependencies`);
+        
         console.log('📦 Installing dependencies...');
-        await runCommand('npm install --production=false');
+        await runCommand('npm install --force 2>&1');
         
         console.log('✅ Dependencies installed!');
         console.log('🚀 Starting BLACK PANTHER MD...');
