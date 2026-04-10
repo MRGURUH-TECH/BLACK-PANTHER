@@ -1,0 +1,12 @@
+{
+  "name": "black-panther-md-loader",
+  "version": "1.0.0",
+  "description": "BLACK PANTHER MD - Loader",
+  "main": "loader.js",
+  "scripts": {
+    "start": "node loader.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}
