@@ -28,8 +28,9 @@ async function downloadFile(url, dest) {
 
 async function runCommand(command) {
     return new Promise((resolve, reject) => {
-        exec(command, (err, stdout, stderr) => {
+        exec(command, { maxBuffer: 1024 * 1024 * 10 }, (err, stdout, stderr) => {
             if (err) {
+                console.error('Command error:', err.message);
                 reject(err);
             } else {
                 if (stdout) console.log(stdout);
@@ -67,8 +68,12 @@ async function main() {
         fs.rmdirSync(EXTRACT_DIR);
         fs.unlinkSync(TEMP_ZIP);
         
-        console.log('📦 Installing dependencies...');
-        await runCommand('npm install');
+        console.log('📦 Installing dependencies from bot package.json...');
+        // Remove node_modules to force clean install
+        if (fs.existsSync('node_modules')) {
+            fs.rmSync('node_modules', { recursive: true, force: true });
+        }
+        await runCommand('npm install --no-package-lock');
         
         console.log('✅ Dependencies installed!');
         
