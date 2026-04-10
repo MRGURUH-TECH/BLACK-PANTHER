@@ -69,13 +69,25 @@ async function main() {
         fs.unlinkSync(TEMP_ZIP);
         
         console.log('📦 Installing dependencies from bot package.json...');
-        // Remove node_modules to force clean install
-        if (fs.existsSync('node_modules')) {
-            fs.rmSync('node_modules', { recursive: true, force: true });
+        // Delete the loader's package.json to avoid conflict
+        if (fs.existsSync('package.json')) {
+            const botPackage = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            console.log(`📋 Found bot package.json with ${Object.keys(botPackage.dependencies || {}).length} dependencies`);
         }
-        await runCommand('npm install --no-package-lock');
+        
+        // Force install all dependencies
+        await runCommand('npm install --force');
         
         console.log('✅ Dependencies installed!');
+        
+        // Verify fs-extra is installed
+        try {
+            require.resolve('fs-extra');
+            console.log('✅ fs-extra verified installed');
+        } catch (e) {
+            console.log('⚠️ fs-extra not found, installing specifically...');
+            await runCommand('npm install fs-extra@latest --save');
+        }
         
         if (fs.existsSync('./index.js')) {
             console.log('🚀 Starting BLACK PANTHER MD...');
