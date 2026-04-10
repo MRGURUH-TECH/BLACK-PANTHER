@@ -30,11 +30,9 @@ async function runCommand(command) {
     return new Promise((resolve, reject) => {
         exec(command, { maxBuffer: 1024 * 1024 * 10 }, (err, stdout, stderr) => {
             if (err) {
-                console.error('Command error:', err.message);
                 reject(err);
             } else {
                 if (stdout) console.log(stdout);
-                if (stderr) console.error(stderr);
                 resolve();
             }
         });
@@ -53,21 +51,13 @@ async function main() {
             throw new Error(`Could not find ${EXTRACT_DIR} directory`);
         }
         
-        console.log(`📁 Moving files from ${EXTRACT_DIR}...`);
+        console.log(`📁 Moving files...`);
         
-        // Save the loader's package.json temporarily
-        const loaderPackageJson = fs.readFileSync('package.json', 'utf8');
-        
+        // Move all files including package.json
         const items = fs.readdirSync(EXTRACT_DIR);
         for (const item of items) {
             const source = path.join(EXTRACT_DIR, item);
             const dest = path.join('.', item);
-            
-            // Skip if it's the loader's package.json
-            if (item === 'package.json') {
-                console.log('📦 Preserving bot package.json');
-                continue;
-            }
             
             if (fs.existsSync(dest)) {
                 fs.rmSync(dest, { recursive: true, force: true });
@@ -75,40 +65,17 @@ async function main() {
             fs.renameSync(source, dest);
         }
         
-        // Restore loader package.json but keep bot's dependencies
-        const botPackageJson = JSON.parse(fs.readFileSync(path.join(EXTRACT_DIR, 'package.json'), 'utf8'));
-        const loaderPackage = JSON.parse(loaderPackageJson);
-        
-        // Merge dependencies
-        const mergedPackage = {
-            ...botPackageJson,
-            scripts: {
-                ...botPackageJson.scripts,
-                start: "node loader.js"
-            },
-            dependencies: {
-                ...botPackageJson.dependencies,
-                ...loaderPackage.dependencies
-            }
-        };
-        
-        fs.writeFileSync('package.json', JSON.stringify(mergedPackage, null, 2));
-        
+        // Remove empty directory
         fs.rmdirSync(EXTRACT_DIR);
         fs.unlinkSync(TEMP_ZIP);
         
         console.log('📦 Installing dependencies...');
-        await runCommand('npm install --force');
+        await runCommand('npm install --production=false');
         
         console.log('✅ Dependencies installed!');
+        console.log('🚀 Starting BLACK PANTHER MD...');
         
-        if (fs.existsSync('./index.js')) {
-            console.log('🚀 Starting BLACK PANTHER MD...');
-            require('./index.js');
-        } else {
-            console.error('❌ Could not find index.js');
-            process.exit(1);
-        }
+        require('./index.js');
         
     } catch (err) {
         console.error('Error:', err.message);
