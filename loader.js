@@ -26,55 +26,59 @@ async function downloadFile(url, dest) {
     });
 }
 
+async function runCommand(command) {
+    return new Promise((resolve, reject) => {
+        exec(command, (err, stdout, stderr) => {
+            if (err) {
+                console.error('Command error:', err.message);
+                reject(err);
+            } else {
+                if (stdout) console.log(stdout);
+                if (stderr) console.error(stderr);
+                resolve();
+            }
+        });
+    });
+}
+
 async function main() {
     try {
         console.log('📥 Downloading from GitHub...');
         await downloadFile(REPO_URL, TEMP_ZIP);
         
         console.log('📦 Extracting...');
-        await new Promise((resolve, reject) => {
-            exec(`unzip -o ${TEMP_ZIP}`, (err) => {
-                if (err) reject(err);
-                else resolve();
-            });
-        });
+        await runCommand(`unzip -o ${TEMP_ZIP}`);
         
-        // Check if extraction directory exists
         if (!fs.existsSync(EXTRACT_DIR)) {
             throw new Error(`Could not find ${EXTRACT_DIR} directory`);
         }
         
         console.log(`📁 Moving files from ${EXTRACT_DIR}...`);
         
-        // Move all files and folders up
         const items = fs.readdirSync(EXTRACT_DIR);
         for (const item of items) {
             const source = path.join(EXTRACT_DIR, item);
             const dest = path.join('.', item);
-            
             if (fs.existsSync(dest)) {
                 fs.rmSync(dest, { recursive: true, force: true });
             }
             fs.renameSync(source, dest);
         }
         
-        // Remove empty directory and zip
         fs.rmdirSync(EXTRACT_DIR);
         fs.unlinkSync(TEMP_ZIP);
         
-        // Look for index.js in the current directory (not system paths)
+        console.log('📦 Installing dependencies (this may take a few minutes)...');
+        await runCommand('npm install --production');
+        
+        console.log('✅ Dependencies installed!');
+        
         if (fs.existsSync('./index.js')) {
-            console.log('✅ Found bot entry: index.js');
+            console.log('🚀 Starting BLACK PANTHER MD...');
             require('./index.js');
-        } else if (fs.existsSync('./main.js')) {
-            console.log('✅ Found bot entry: main.js');
-            require('./main.js');
-        } else if (fs.existsSync('./guru/index.js')) {
-            console.log('✅ Found bot entry: guru/index.js');
-            require('./guru/index.js');
         } else {
-            console.error('❌ Could not find index.js or main.js');
-            console.log('📂 Files in current directory:', fs.readdirSync('.').filter(f => !f.startsWith('.')));
+            console.error('❌ Could not find index.js');
+            console.log('Files in directory:', fs.readdirSync('.'));
             process.exit(1);
         }
         
